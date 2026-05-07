@@ -2,6 +2,7 @@
 using ChatIA.Application.Interfaces;
 using ChatIA.Domain.Entities;
 using ChatIA.Infrastructure.Data;
+using ChatIA.Shared.Errors;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatIA.Routes;
@@ -58,7 +59,7 @@ public static class ChatRoutes
             .WithName("GetChats")
             .WithOpenApi();
         
-        //POST - CRIA UMA NOVA MENSAGEM PARA 'TAL' CHAT
+        //POST - CRIA UMA NOVA MENSAGEM PARA UM CHAT ESPECIFICO
         app.MapPost("/chats/{chatId:guid}/messages", async (
                 Guid chatId,
                 SendChatMessageDto request,
@@ -68,20 +69,14 @@ public static class ChatRoutes
             {
                 if (string.IsNullOrWhiteSpace(request.Message))
                 {
-                    return Results.BadRequest(new
-                    {
-                        message = "A mensagem é obrigatória."
-                    });
+                    return ApiError.BadRequest("A mensagem é obrigatória");
                 }
 
                 var chatExists = await dbContext.Chats.AnyAsync(chat => chat.Id == chatId);
 
                 if (!chatExists)
                 {
-                    return Results.NotFound(new
-                    {
-                        message = "Chat não encontrado."
-                    });
+                    return ApiError.NotFound("Chat não encontrado.");
                 }
 
                 var userMessage = new ChatMessage(
@@ -93,7 +88,19 @@ public static class ChatRoutes
                 dbContext.ChatMessages.Add(userMessage);
                 await dbContext.SaveChangesAsync();
 
-                var aiResponse = await aiService.SendMessageAsync(request.Message);
+                string aiResponse;
+
+                try
+                {
+                    aiResponse = await aiService.SendMessageAsync(request.Message);
+                }
+                catch
+                {
+                    return ApiError.ExternalServiceError(
+                        "Não foi possível obter resposta da IA no momento. Tente novamente."
+                    );
+                }
+                
 
                 var assistantMessage = new ChatMessage(
                     chatId,
@@ -114,7 +121,7 @@ public static class ChatRoutes
             .WithName("SendChatMessage")
             .WithOpenApi();
         
-        //GET DO HISTORICO DE MENSAGENS DE 'TAL' CHAT
+        //GET DO HISTORICO DE MENSAGENS DE UM CHAT ESPECIFICO
         app.MapGet("/chats/{chatId:guid}/messages", async (
                 Guid chatId,
                 AppDbContext dbContext
@@ -124,10 +131,7 @@ public static class ChatRoutes
 
                 if (!chatExists)
                 {
-                    return Results.NotFound(new
-                    {
-                        message = "Chat não encontrado."
-                    });
+                    return ApiError.NotFound("Chat não encontrado.");
                 }
 
                 var messages = await dbContext.ChatMessages

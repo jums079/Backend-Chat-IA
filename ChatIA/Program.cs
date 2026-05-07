@@ -20,8 +20,6 @@ var app = builder.Build();
 
 app.UseSwagger();
 app.UseSwaggerUI();
-
-app.MapAiRoutes();
 app.MapChatRoutes();
 
 app.Run();
