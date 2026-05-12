@@ -3,7 +3,7 @@
 public class Chat
 {
     public Guid Id { get; private set; }
-    public string Title { get; private set; }
+    public string Title { get; set; }
     public DateTime CreatedAt { get; private set; }
 
     public List<ChatMessage> Messages { get; private set; } = [];

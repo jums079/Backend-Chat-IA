@@ -9,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddHttpClient<AiService, GeminiService>();
+builder.Services.AddHttpClient<IAiService, GeminiService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
