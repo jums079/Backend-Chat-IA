@@ -1,6 +1,7 @@
 ﻿namespace ChatIA.Application.Interfaces;
 
-public interface AiService
+public interface IAiService
 {
     Task<string> SendMessageAsync(string message);
+    Task<string> GenerateTitleAsync(string message);
 }

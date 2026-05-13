@@ -1,6 +1,7 @@
 ﻿using ChatIA.Application.Dtos;
 using ChatIA.Application.Interfaces;
 using ChatIA.Domain.Entities;
+using ChatIA.Domain.Enums;
 using ChatIA.Infrastructure.Data;
 using ChatIA.Shared.Errors;
 using Microsoft.EntityFrameworkCore;
@@ -14,19 +15,10 @@ public static class ChatRoutes
     {
         //POST - CRIA UM NOVO CHAT
         app.MapPost("/chats", async (
-                CreateChatDto request,
                 AppDbContext dbContext
             ) =>
             {
-                if (string.IsNullOrWhiteSpace(request.Title))
-                {
-                    return Results.BadRequest(new
-                    {
-                        message = "O título do chat é obrigatório."
-                    });
-                }
-
-                var chat = new Chat(request.Title);
+                var chat = new Chat("Nova Conversa"); 
 
                 dbContext.Chats.Add(chat);
                 await dbContext.SaveChangesAsync();
@@ -64,7 +56,7 @@ public static class ChatRoutes
                 Guid chatId,
                 SendChatMessageDto request,
                 AppDbContext dbContext,
-                AiService aiService
+                IAiService aiService
             ) =>
             {
                 if (string.IsNullOrWhiteSpace(request.Message))
@@ -72,16 +64,29 @@ public static class ChatRoutes
                     return ApiError.BadRequest("A mensagem é obrigatória");
                 }
 
-                var chatExists = await dbContext.Chats.AnyAsync(chat => chat.Id == chatId);
+                var chat = await dbContext.Chats.FirstOrDefaultAsync(chat => chat.Id == chatId);
 
-                if (!chatExists)
+                if (chat == null)
                 {
                     return ApiError.NotFound("Chat não encontrado.");
                 }
 
+                if (chat.Title == "Nova Conversa" || string.IsNullOrWhiteSpace(chat.Title))
+                {
+                    try 
+                    {
+                        var generatedTitle = await aiService.GenerateTitleAsync(request.Message);
+                        chat.Title = generatedTitle;
+                    }
+                    catch 
+                    {
+                      
+                    }
+                }
+
                 var userMessage = new ChatMessage(
                     chatId,
-                    "user",
+                    MessageRole.User,
                     request.Message
                 );
 
@@ -104,7 +109,7 @@ public static class ChatRoutes
 
                 var assistantMessage = new ChatMessage(
                     chatId,
-                    "assistant",
+                    MessageRole.Assistant,
                     aiResponse
                 );
 
@@ -127,9 +132,9 @@ public static class ChatRoutes
                 AppDbContext dbContext
             ) =>
             {
-                var chatExists = await dbContext.Chats.AnyAsync(chat => chat.Id == chatId);
+                var chat = await dbContext.Chats.FirstOrDefaultAsync(chat => chat.Id == chatId);
 
-                if (!chatExists)
+                if (chat == null)
                 {
                     return ApiError.NotFound("Chat não encontrado.");
                 }
@@ -137,17 +142,18 @@ public static class ChatRoutes
                 var messages = await dbContext.ChatMessages
                     .Where(message => message.ChatId == chatId)
                     .OrderBy(message => message.CreatedAt)
-                    .Select(message => new
+                    .Select(message => new ChatMessageDto
                     {
-                        message.Id,
-                        message.ChatId,
-                        message.Role,
-                        message.Content,
-                        message.CreatedAt
-                    })
-                    .ToListAsync();
+                        Content = message.Content,
+                        Role = message.Role,
+                        ChatiId = message.ChatId // Mantendo o seu nome 'ChatiId'
+                    }).ToListAsync();
 
-                return Results.Ok(messages);
+                return Results.Ok(new ChatHistoryResponseDto
+                {
+                    Title = chat.Title,
+                    Messages = messages
+                });
             })
             .WithName("GetChatMessages")
             .WithOpenApi();

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ChatIA.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260506011551_InitialCreate")]
+    [Migration("20260512232302_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -59,9 +59,8 @@ namespace ChatIA.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
